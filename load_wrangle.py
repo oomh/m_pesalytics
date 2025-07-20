@@ -6,15 +6,16 @@ from PDF statements. It includes functions for data extraction, transformation, 
 standardization.
 
 Functions:
-    load_pdf_data: Extracts transaction data from PDF statements
-    clean_data: Cleans and standardizes the extracted data
+
     split_details: Helper function to parse transaction details
     split_type: Helper function to parse transaction types
+    
+    load_pdf_data: Extracts transaction data from PDF statements
+    clean_data: Cleans and standardizes the extracted data
 
 Dependencies:
     - pandas: For data manipulation
     - tabula: For PDF data extraction
-    - streamlit: For progress indicators
 """
 
 import pandas as pd
@@ -41,7 +42,7 @@ EXPECTED_COLUMNS = [
 
 # @st.cache_data(show_spinner="Extracting and cleaning your statement...")
 # Step 1: Load and examine raw data
-def load_pdf_data(pdf_path, password):
+def load_pdf_data(pdf_path: str, password: str) -> pd.DataFrame:
     """
     Load M-Pesa transaction data from PDF statement.
 
@@ -56,18 +57,15 @@ def load_pdf_data(pdf_path, password):
     try:
         print(f"📄 Loading PDF: {pdf_path}")
         df_list = read_pdf(
-            pdf_path, pages="all", guess=True, lattice=True, password=password
-        )
+            pdf_path, pages="all", guess=True, lattice=True, password=password)
         print(f"📊 Found {len(df_list)} tables in PDF")
 
         # Filter for transaction tables
         selected_dfs = [
             df
             for df in df_list
-            if isinstance(df, pd.DataFrame) and df.columns.isin(EXPECTED_COLUMNS).any()
-        ]
-
-        # print(f"\n✅ Found {len(selected_dfs)} transaction tables")
+            if isinstance(df, pd.DataFrame) and df.columns.isin(EXPECTED_COLUMNS).any()]
+        print(f"\n✅ Found {len(selected_dfs)} transaction tables")
 
         if selected_dfs:
             combined_df = pd.concat(selected_dfs, ignore_index=True)
@@ -80,11 +78,11 @@ def load_pdf_data(pdf_path, password):
             return combined_df
         else:
             print("❌ No valid transaction tables found!")
-            return None
+            return pd.DataFrame()
 
     except Exception as e:
         print(f"❌ Error loading PDF: {str(e)}")
-        return None
+        return pd.DataFrame()
 
 
 def split_details(details_text):
@@ -126,7 +124,7 @@ def split_type(transaction_type):
 
 
 # @st.cache_data(show_spinner="Cleaning your M-Pesa data...")
-def clean_data(df):
+def clean_data(df: pd.DataFrame) -> pd.DataFrame:
     """
     Clean and standardize M-Pesa transaction data.
 
@@ -134,102 +132,106 @@ def clean_data(df):
         df (pd.DataFrame): Raw transaction data DataFrame
 
     Returns:
-        pd.DataFrame: Cleaned and standardized DataFrame with additional
-            computed columns, or exits if cleaning fails
-
-    Columns added:
-        - month: Transaction month in format "Month_YY"
-        - week: Transaction week in format "WeekNumber_YY"
-        - type_class: Standardized transaction type category
-        - type_desc: Detailed transaction type description
+        pd.DataFrame: Cleaned and standardized DataFrame with added columns:
+            - month: e.g., "July_25"
+            - week: e.g., "29_25"
+            - type_class: General transaction category
+            - type_desc: More specific transaction description
     """
+    import streamlit as st
+    import pandas as pd
+
     print("\n🧹 Cleaning data...")
-    if df is None:
+
+    if df is None or df.empty:
         print("❌ The DataFrame is empty after loading.")
         st.error(
-            "The DataFrame is empty after loading. Please check the PDF file, or the password provided then reload the page to try again."
+            "The DataFrame is empty after loading. Please check the PDF file or password, then try again."
         )
-        sys.exit(1)
-    else:
-        print(f"Original shape: {df.shape}")
+        return pd.DataFrame()
 
-        df_clean = df.copy()
+    print(f"Original shape: {df.shape}")
 
-        # Rename columns to a consistent format
-        mapping = {}
-        for c in df_clean.columns:
-            if "receipt" in c or "ref" in c:
-                mapping[c] = "receipt_no"
-            elif "completion" in c or "time" in c:
-                mapping[c] = "date_time"
-            elif "detail" in c:
-                mapping[c] = "details"
-            elif "paid" in c and "in" in c:
-                mapping[c] = "paid_in"
-            elif "withdraw" in c:
-                mapping[c] = "withdrawn"
+    df_clean = df.copy()
 
-        print(f"📝 Mapping found: {mapping}")
-        df_clean = df_clean.rename(columns=mapping)
-        df_clean = df_clean.drop(
-            columns=[
-                col
-                for col in df_clean.columns
-                if col
-                not in ["receipt_no", "date_time", "details", "paid_in", "withdrawn"]
-            ]
-        )
+    # Step 1: Drop columns not in expected list
+    expected = ('receiptno.', "receiptno", 'completiontime', 'details', 'transactionstatus', 'paidin', 'withdrawn', 'withdraw')
+    cols_to_drop = [col for col in df_clean.columns if col not in expected]
+    
+    if cols_to_drop:
+        print(f"🗑️ Dropping unexpected columns: {cols_to_drop}")
+        df_clean = df_clean.drop(columns=cols_to_drop)
 
-        # Rest of your code unchanged...
-        df_clean["receipt_no"] = df_clean["receipt_no"].astype("string")
-        df_clean["date_time"] = pd.to_datetime(df_clean["date_time"], errors="coerce")
+    # Step 2: Rename columns to standardized names
+    mapping = {}
+    for col in df_clean.columns:
+        lc = col.lower()
+        if "receipt" in lc or "ref" in lc:
+            mapping[col] = "receipt_no"
+        elif "completion" in lc or "time" in lc:
+            mapping[col] = "date_time"
+        elif "detail" in lc or "details" in lc:
+            mapping[col] = "details"
+        elif "paid" in lc and "in" in lc:
+            mapping[col] = "paid_in"
+        elif "withdrawn" in lc or 'withdr' in lc:
+            mapping[col] = "withdrawn"
 
-        df_clean["withdrawn"] = (
-            pd.to_numeric(
-                df_clean["withdrawn"]
-                .astype(str)
-                .str.replace(",", "")
-                .replace(["", "-", "N/A", "nan"], "0"),
-                errors="coerce",
-            )
-            .abs()
-            .fillna(0)
-        )
+    print(f"📝 Renaming columns using mapping: {mapping}")
+    df_clean = df_clean.rename(columns=mapping)
 
-        df_clean["paid_in"] = pd.to_numeric(
-            df_clean["paid_in"]
+    # Step 3: Keep only necessary renamed columns
+    keep_cols = ["receipt_no", "date_time", "details", "paid_in", "withdrawn"]
+    df_clean = df_clean[[col for col in keep_cols if col in df_clean.columns]]
+
+    # Step 4: Standardize and clean column values
+    df_clean["receipt_no"] = df_clean["receipt_no"].astype("string")
+    df_clean["date_time"] = pd.to_datetime(df_clean["date_time"], errors="coerce")
+
+    df_clean["withdrawn"] = (
+        pd.to_numeric(
+            df_clean["withdrawn"]
             .astype(str)
             .str.replace(",", "")
             .replace(["", "-", "N/A", "nan"], "0"),
             errors="coerce",
-        ).fillna(0)
-
-        df_clean["details"] = df_clean["details"].str.replace(r"\s+", " ", regex=True)
-
-        # Split details into type and entity
-        df_clean[["type", "entity"]] = df_clean["details"].apply(
-            lambda x: pd.Series(split_details(x))
         )
+        .abs()
+        .fillna(0)
+    )
 
-        # Split type into type_class and type_desc
-        df_clean[["type_class", "type_desc"]] = df_clean["type"].apply(
-            lambda x: pd.Series(split_type(x))
-        )
-        # Create sortable date columns with first day of month/week
-        # df_clean["month_sort"] = df_clean["date_time"].dt.to_period('M').dt.to_timestamp()
-        # df_clean["week_sort"] = df_clean["date_time"].dt.to_period('W').dt.to_timestamp()
+    df_clean["paid_in"] = pd.to_numeric(
+        df_clean["paid_in"]
+        .astype(str)
+        .str.replace(",", "")
+        .replace(["", "-", "N/A", "nan"], "0"),
+        errors="coerce",
+    ).fillna(0)
 
-        # Create display columns with formatted strings
-        df_clean["month"] = df_clean["date_time"].dt.strftime("%B_%y")
-        df_clean["week"] = df_clean["date_time"].dt.strftime("%V_%y")
+    df_clean["details"] = df_clean["details"].str.replace(r"\s+", " ", regex=True)
 
-        print(f"Cleaned shape: {df_clean.shape}")
-        print(f"Final columns: {list(df_clean.columns)}")  # ← Debug print
+    # Step 5: Extract type/entity and classify transactions
+    df_clean[["type", "entity"]] = df_clean["details"].apply(
+        lambda x: pd.Series(split_details(x))
+    )
+
+    df_clean[["type_class", "type_desc"]] = df_clean["type"].apply(
+        lambda x: pd.Series(split_type(x))
+    )
+
+    # Step 6: Add formatted time columns
+    df_clean["month"] = df_clean["date_time"].dt.strftime("%B_%y")
+    df_clean["week"] = df_clean["date_time"].dt.strftime("%V_%y")
+
+    print(f"✅ Cleaned shape: {df_clean.shape}")
+    print(f"🧾 Final columns: {list(df_clean.columns)}")
+    if not df_clean["date_time"].isnull().all():
         print(
-            f"Date range: {df_clean['date_time'].min().strftime('%B %d, %Y %H:%M')} to {df_clean['date_time'].max().strftime('%B %d, %Y %H:%M')}"
+            f"🗓️ Date range: {df_clean['date_time'].min().strftime('%b %d, %Y')} → {df_clean['date_time'].max().strftime('%b %d, %Y')}"
         )
 
-        return df_clean
+    return df_clean
+
 
 
 if __name__ == "__main__":

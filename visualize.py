@@ -11,8 +11,9 @@ import pandas as pd
 from typing import Optional, Dict, Any
 
 # Default configuration
-DEFAULT_COLOR_SCALE = "earth"
-DEFAULT_TEMPLATE = "seaborn"
+DEFAULT_COLOR_SCALE = ""
+DEFAULT_TEMPLATE = "xgridoff"
+# ['ggplot2', 'seaborn', 'simple_white', 'plotly','plotly_white', 'plotly_dark', 'presentation', 'xgridoff','ygridoff', 'gridon', 'none']
 DEFAULT_HEIGHT = 500
 MIN_BAR_HEIGHT = 40
 LARGEST = 10
@@ -72,6 +73,7 @@ def create_horizontal_bar_chart(
         xaxis=dict(showticklabels=False),
         yaxis_title="",
         dragmode=False,
+        title=f"Top 10 by transaction amount"
     )
 
     fig.update_traces(

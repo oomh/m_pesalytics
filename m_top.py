@@ -10,11 +10,9 @@ import streamlit as st
 import pandas as pd
 from load_wrangle import load_pdf_data, clean_data
 from efficient_analysis import Analyzer
+from typing import Tuple, Any
 from transaction_categorizer import categorize_transactions_efficiently
-from ui_components import (
-    create_transaction_tab,
-    create_full_transaction_expander
-)
+from ui_components import create_transaction_tab, create_full_transaction_expander
 
 # Display columns for transaction details (smart amount display)
 display_columns = ["receipt_no", "date_time", "details", "paid_in", "withdrawn"]
@@ -48,11 +46,12 @@ st.markdown(
 def initialize_session_state():
     """Initialize all session state variables"""
     session_vars = {
-        "pdf_path": None,
+        "pdf_path": "",
         "pdf_password": "",
         "process_clicked": False,
         "load_error": None,
         "disable": {"date": False, "month": False},
+        "faux_data_clicked": False
     }
 
     for key, default_value in session_vars.items():
@@ -67,62 +66,79 @@ initialize_session_state()
 # USER INTERFACE - HEADER
 # ============================================================================
 
-# Hero Section
 with st.container():
+    # App Title and Subtitle (centered)
     st.markdown(
         """
+            <!-- Centered container for app title and subtitle -->
         <div style="text-align: center; padding: 1rem 0 0.5rem;">
-            <h1 style="font-size: 2.5rem; margin-bottom: 0.2rem;">📱 M-Peasalytics</h1>
-            <p style="font-size: 1rem; color: gray;">Track, analyze, and make sense of your M-Pesa transactions</p>
+            <!-- Main App Title -->
+        <h1 style="font-size: 2.5rem; margin-bottom: 0.2rem;">📱 M-Peasalytics</h1>
+            <!-- Subtitle describing the app purpose -->
+        <p style="font-size: 1rem; color: gray;">Track, analyze, and make sense of your M-Pesa transactions</p>
         </div>
         """,
         unsafe_allow_html=True,
     )
 
-    # Feature Cards
+    # FEATURE CARDS - UPLOAD, EXPLORE, INTERACT
+    card_style = "background: transparent; padding: 1rem; border-radius: 22px; text-align: center; border: 0.05px solid rgba(49, 51, 63, 0.15);"
+    div_style = "background: transparent; padding: 1rem; border-radius: 12px; font-size: 2rem text-align: center; margin: 1rem auto; border: 0.1px solid rgba(49, 51, 63, 0.15);"
     col1, col2, col3 = st.columns(3)
 
+    # Upload Card
     with col1:
         st.markdown(
-            """
-            <div style="background: transparent; padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(49, 51, 63, 0.15);">
-                <div style="font-size: 2rem;">📁</div>
-                <h3 style="margin-bottom: 0.5rem;">Upload</h3>
-                <p style="font-size: 0.9rem;">Upload your M-Pesa PDF statement and password to get started</p>
+            f"""
+                <!-- Card for Upload feature -->
+            <div style="{card_style}">
+                <!-- Card Title -->
+            <h3 style="{div_style}">📁Upload</h3>
+                <!-- Card Description -->
+            <p style="{div_style}">Upload your M-Pesa PDF statement and password to get started</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    # Explore Card
     with col2:
         st.markdown(
-            """
-            <div style="background: transparent; padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(49, 51, 63, 0.15);">
-                <div style="font-size: 2rem;">📊</div>
-                <h3 style="margin-bottom: 0.5rem;">Explore</h3>
-                <p style="font-size: 0.9rem;">Browse Money In and Money Out sections to see your transaction patterns</p>
+            f"""
+                <!-- Card for Explore feature -->
+            <div style="{card_style}">
+                <!-- Card Title -->
+            <h3 style="{div_style}">📊Explore</h3>
+                <!-- Card Description -->
+            <p style="{div_style}">Browse Money In and Money Out sections to see your transaction patterns</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
+    # Interact Card
     with col3:
         st.markdown(
-            """
-            <div style="background: transparent; padding: 1rem; border-radius: 12px; text-align: center; border: 1px solid rgba(49, 51, 63, 0.15);">
-                <div style="font-size: 2rem;">✅</div>
-                <h3 style="margin-bottom: 0.5rem;">Interact</h3>
-                <p style="font-size: 0.9rem;">Use checkboxes and expandable sections for deeper insights</p>
+            f"""
+                <!-- Card for Interact feature -->
+            <div style="{card_style}">
+                <!-- Card Title -->
+            <h3 style="{div_style}">✅Interact</h3>
+                <!-- Card Description -->
+            <p style="{div_style}">Use checkboxes and expandable sections for deeper insights</p>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-    # Quick Tips with basic text art-style graphics
+    # QUICK TIPS SECTION
     st.markdown(
-        """
+        f"""
+        <!-- Container for Quick Tips section -->
         <div style="text-align: center; background: transparent; padding: 1rem; border-radius: 8px; margin: 2rem 0 1rem; border: 1px solid rgba(49, 51, 63, 0.2);">
-            <h4 style="margin-bottom: 0.5rem;">💡 Quick Tips:</h4>
+            <!-- Quick Tips Title -->
+            <h4 style="{div_style}">💡 Quick Tips:</h4>
+            <!-- List of tips for using the app -->
             <ul style="margin: auto; display: inline-block; text-align: left; font-size: 0.9rem; line-height: 1.6;">
                 <li>🗓️ <b>Filter by date/month</b> using the sidebar controls</li>
                 <li>☑️ <b>Check boxes in tables</b> to group by user</li>
@@ -131,6 +147,7 @@ with st.container():
                 <li>📈 <b>Rotate screen </b> if you are using a phone</li>
                 <li>📲 <b>Download CSVs with the toolbar on the top right of the tables, useful when you need details for all transactions from person
             </ul>
+            <!-- Spacer for layout -->
             <pre style="color: gray; font-size: 0.8rem; margin-top: 1rem;">
             </pre>
         </div>
@@ -154,11 +171,16 @@ with st.expander(
             key="pdf_password_input",
         )
         process = st.form_submit_button("Process")
+        faux_data = st.form_submit_button("Show Dashboard with faux data")
 
     if process:
         st.session_state.pdf_path = pdf
         st.session_state.pdf_password = password
         st.session_state.process_clicked = True
+        st.session_state.load_error = None
+        
+    if faux_data:
+        st.session_state.faux_data_clicked = True
         st.session_state.load_error = None
 
 # ============================================================================
@@ -167,18 +189,24 @@ with st.expander(
 
 
 @st.cache_data(show_spinner="Extracting and cleaning your statement...")
-def load_and_clean(pdf_file, password):
+def load_and_clean(pdf_file: Any, password: str) -> Tuple:
     """Load and clean PDF data with error handling"""
     try:
         df = load_pdf_data(pdf_file, password)
+
         df_cleaned = clean_data(df)
         return df_cleaned, None
-    except FileNotFoundError:
-        return None, "PDF file not found"
-    except PermissionError:
-        return None, "Invalid PDF password"
+
     except Exception as e:
         return None, f"Unexpected error: {str(e)}"
+
+
+@st.cache_data(show_spinner="Parsing Faux Data...")
+def faux_data_clean() -> pd.DataFrame:
+    faux_df = pd.read_csv('.streamlit/faux_data.csv')
+    df_cleaned = clean_data(faux_df)
+    return df_cleaned
+    
 
 
 @st.cache_data(show_spinner="Categorizing transactions efficiently...")
@@ -230,7 +258,7 @@ def filter_categorized_data(categorized_data, date_filter=None, month_filter=Non
 # ============================================================================
 
 # Only proceed if the user has clicked "Process" and a file is uploaded
-if st.session_state.get("process_clicked") and st.session_state.pdf_path is not None:
+if st.session_state.get("process_clicked") and st.session_state.pdf_path:
     df_cleaned, load_error = load_and_clean(
         st.session_state.pdf_path, st.session_state.pdf_password
     )
@@ -245,13 +273,28 @@ if st.session_state.get("process_clicked") and st.session_state.pdf_path is not 
         endDate = df_cleaned["date_time"].max().strftime("%b %d, %Y")
 
     # Categorize transactions
+    
+        categorized_data, categorize_error = categorize_data(df_cleaned)
+
+        if categorize_error:
+            st.error(f"Failed to categorize transactions: {categorize_error}")
+            st.session_state.process_clicked = False
+            st.stop()
+
+elif st.session_state.get("faux_data_clicked"):
+    df_cleaned = faux_data_clean() 
+    startDate = df_cleaned["date_time"].min().strftime("%b %d, %Y")
+    endDate = df_cleaned["date_time"].max().strftime("%b %d, %Y")
+
+    # Categorize transactions
     categorized_data, categorize_error = categorize_data(df_cleaned)
 
     if categorize_error:
         st.error(f"Failed to categorize transactions: {categorize_error}")
         st.session_state.process_clicked = False
+        categorized_data, categorize_error = pd.DataFrame(), categorize_error
         st.stop()
-
+        
 else:
     st.info("Please upload your PDF and click 'Process' to continue.")
     st.stop()
@@ -291,7 +334,7 @@ with st.sidebar:
     )
 
     # Date range filter
-    if st.session_state.get("date_filter") and not df_cleaned is None:
+    if st.session_state.get("date_filter") and not df_cleaned.empty:
         date_range = st.date_input(
             "Select Date Range",
             value=[
@@ -308,10 +351,9 @@ with st.sidebar:
 
     # Month filter
     elif st.session_state.get("month_filter") and not df_cleaned is None:
-        month_list = list(
-            df_cleaned["date_time"].dt.month_name()
-            + "_"
-            + df_cleaned["date_time"].dt.year.astype(str)
+        month_list = list(df_cleaned["date_time"].dt.month_name()
+                                + "_"
+                                + df_cleaned["date_time"].dt.year.astype(str)
         )
         month_list = sorted(
             set(month_list),
@@ -331,9 +373,7 @@ with st.sidebar:
         st.info(f"💡 Showing all data from {startDate} to {endDate}")  # type: ignore
 
 # Apply filters to categorized data
-filtered_categorized_data = filter_categorized_data(
-    categorized_data, date_filter=date_filter_value, month_filter=month_filter_value
-)
+filtered_categorized_data = filter_categorized_data(categorized_data, date_filter=date_filter_value, month_filter=month_filter_value)
 st.divider()
 
 # Ensure filtered_categorized_data is not None before initializing Analyzer
@@ -464,9 +504,7 @@ with st.container():
 
 with st.container():
     st.subheader("😒 Cash Transfers & Withdrawals")
-    transfer, withdrawals = st.tabs(
-        ["Transfers", "Withdrawals"]
-    )
+    transfer, withdrawals = st.tabs(["Transfers", "Withdrawals"])
 
     # Transfer Tab
     with transfer:
@@ -583,10 +621,12 @@ with st.container():
 st.divider()
 st.header("Full Transaction dataframe")
 
-create_full_transaction_expander(
-            df=df_cleaned,
-            transaction_type="All Transactions",
-            display_columns=display_columns)
+if not df_cleaned.empty:
+    create_full_transaction_expander(
+        df=df_cleaned,
+        transaction_type="All Transactions",
+        display_columns=display_columns,
+    )
 # ============================================================================
 # USER ACTIONS - RESET FUNCTIONALITY
 # ============================================================================

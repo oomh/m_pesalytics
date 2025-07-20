@@ -83,7 +83,7 @@ def create_styled_dataframe(
         column_config = {
             "amount": st.column_config.NumberColumn("Amount"),
             "count": st.column_config.NumberColumn(
-                "Number of Transactions", width="small"
+                "Transactions", width="small"
             ),
             "processed_entity": st.column_config.Column(
                 f"{merchant_type}", pinned=True
@@ -241,16 +241,18 @@ def create_transaction_tab(
         create_metrics_display(spend, charges, transactions, frame)
 
         with st.container():
-            col1, col2 = st.columns([1, 1])
+            # col1, col2 = st.columns([1, 1])
 
-            with col2:
+            with st.container():
+                st.markdown("\n")
+                st.markdown("\n")
                 st.markdown("\n")
 
                 # Create column config
                 column_config = {
                     "amount": st.column_config.NumberColumn("Amount"),
                     "count": st.column_config.NumberColumn(
-                        "Number of Transactions", width="small"
+                        "Transactions", width="small"
                     ),
                     "processed_entity": st.column_config.Column(
                         merchant_type, pinned=True
@@ -285,9 +287,12 @@ def create_transaction_tab(
 
             create_transaction_detail_section(result, detail_title)
 
-            with col1:
+            with st.container():
                 st.plotly_chart(
-                    fig, use_container_width=True, key=f"{transaction_type}_fig"
+                    fig, 
+                    use_container_width=True, key=f"{transaction_type}_fig",
+                    title=f"Top 10  {transaction_type}",
+                    config={ 'fillFrame' : True}
                 )
 
             # Show all transactions

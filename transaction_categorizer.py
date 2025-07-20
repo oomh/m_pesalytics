@@ -156,7 +156,7 @@ class TransactionCategorizer:
         match (details, type_desc, type_class):
 
             # Money In Categories
-            case (x, y, z) if "funds received from" == z:
+            case (x, y, z) if "funds received from" in z and not y.isalnum():
                 transaction_data["category"] = "ReceivedMoney"
                 transaction_data["is_charge"] = False
                 name, account = (

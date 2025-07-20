@@ -1,15 +1,20 @@
 [theme]
-base="dark"
-font = "sans serif"                     # Font family for the app
-
-[server]
-enableCORS = true                       # Disable CORS for API requests
-enableXsrfProtection = true             # Enable XSRF protection
-maxUploadSize = 200                     # Max upload size in MB
+base = "dark"
 
 [browser]
-gatherUsageStats = false                # Disable usage statistics
+# usage statistics collection false for privacy
+gatherUsageStats = false
+
 
 [runner]
-magicEnabled = true                     # Enable magic commands
-fastReruns = true                       # Enable fast re-runs
+# magic commands (e.g., displaying variables by typing their name)
+magicEnabled = true
+
+# Make reruns more responsive to user interaction
+fastReruns = true
+
+[server]
+# CORS protection for security
+enableCORS = true
+# XSRF protection for security
+enableXsrfProtection = true
